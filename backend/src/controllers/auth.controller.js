@@ -2,6 +2,9 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import pool from "../config/db.js";
 
+/**
+ * POST /api/auth/login
+ */
 export const login = async (req, res) => {
   const { email, password, tenantSubdomain } = req.body;
 
@@ -18,14 +21,14 @@ export const login = async (req, res) => {
       SELECT 
         u.id,
         u.email,
-        u.password,
+        u.password_hash,
         u.full_name,
         u.role,
-        u.is_active,
         u.tenant_id,
+        u.is_active,
         t.name AS tenant_name,
         t.subdomain,
-        t.status AS tenant_status
+        t.status
       FROM users u
       LEFT JOIN tenants t ON u.tenant_id = t.id
       WHERE u.email = $1
@@ -42,24 +45,16 @@ export const login = async (req, res) => {
       });
     }
 
-    // 🔒 User active check
-    if (!user.is_active) {
-      return res.status(403).json({
-        success: false,
-        message: "User account is inactive",
-      });
-    }
-
-    // 🏢 Tenant validation (non super-admin)
+    // Tenant validation (skip for super_admin)
     if (user.role !== "super_admin") {
-      if (!tenantSubdomain || user.subdomain !== tenantSubdomain) {
+      if (!tenantSubdomain || tenantSubdomain !== user.subdomain) {
         return res.status(404).json({
           success: false,
           message: "Tenant not found",
         });
       }
 
-      if (user.tenant_status !== "active") {
+      if (user.status !== "active") {
         return res.status(403).json({
           success: false,
           message: "Tenant is not active",
@@ -67,8 +62,7 @@ export const login = async (req, res) => {
       }
     }
 
-    // 🔑 PASSWORD CHECK (FIXED)
-    const isMatch = await bcrypt.compare(password, user.password);
+    const isMatch = await bcrypt.compare(password, user.password_hash);
     if (!isMatch) {
       return res.status(401).json({
         success: false,
@@ -76,7 +70,6 @@ export const login = async (req, res) => {
       });
     }
 
-    // 🔐 JWT
     const token = jwt.sign(
       {
         userId: user.id,
@@ -84,13 +77,12 @@ export const login = async (req, res) => {
         role: user.role,
       },
       process.env.JWT_SECRET,
-      { expiresIn: "1d" }
+      { expiresIn: process.env.JWT_EXPIRES_IN || "24h" }
     );
 
     return res.status(200).json({
       success: true,
       data: {
-        token,
         user: {
           id: user.id,
           email: user.email,
@@ -98,6 +90,8 @@ export const login = async (req, res) => {
           role: user.role,
           tenantId: user.tenant_id,
         },
+        token,
+        expiresIn: 86400,
       },
     });
   } catch (error) {
@@ -109,6 +103,9 @@ export const login = async (req, res) => {
   }
 };
 
+/**
+ * GET /api/auth/me
+ */
 export const getCurrentUser = async (req, res) => {
   try {
     const { userId } = req.user;

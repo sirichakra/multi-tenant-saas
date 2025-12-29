@@ -12,34 +12,29 @@ function Login() {
   const navigate = useNavigate();
   const { login } = useAuth();
 
-  const API = import.meta.env.VITE_API_URL;
-
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError("");
+  e.preventDefault();
+  setError("");
 
-    try {
-      const payload = {
-        email,
-        password,
-      };
+  try {
+    const payload = {
+      email,
+      password,
+      tenantSubdomain: tenantSubdomain || null,
+    };
 
-      if (tenantSubdomain) {
-        payload.tenantSubdomain = tenantSubdomain;
-      }
+    const res = await axios.post(
+      `${import.meta.env.VITE_API_URL}/auth/login`,
+      payload
+    );
 
-      const res = await axios.post(`${API}/auth/login`, payload);
+    login(res.data.data.token);
+    navigate("/dashboard");
+  } catch (err) {
+    setError(err.response?.data?.message || "Login failed");
+  }
+};
 
-      login(res.data.data.token);
-      navigate("/dashboard");
-    } catch (err) {
-      console.error("LOGIN ERROR:", err.response?.data || err.message);
-      setError(
-        err.response?.data?.message ||
-          "Login failed. Check credentials."
-      );
-    }
-  };
 
   return (
     <div style={{ maxWidth: "400px", margin: "50px auto" }}>
@@ -70,7 +65,7 @@ function Login() {
 
         <input
           type="text"
-          placeholder="Tenant Subdomain (optional for super admin)"
+          placeholder="Tenant Subdomain (demo)"
           value={tenantSubdomain}
           onChange={(e) => setTenantSubdomain(e.target.value)}
         />
