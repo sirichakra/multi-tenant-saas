@@ -1,50 +1,34 @@
-import { Routes, Route, Navigate } from "react-router-dom";
-import { useAuth } from "./context/AuthContext";
-import Login from "./pages/Login";
-import Dashboard from "./pages/Dashboard";
-import Projects from "./pages/Projects";
-import Tasks from "./pages/Tasks";
-import Users from "./pages/Users";
+import { useState } from "react";
+import axios from "axios";
 
 function App() {
-  const { loading, user } = useAuth();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [tenant, setTenant] = useState("");
+  const [msg, setMsg] = useState("");
 
-  if (loading) {
-    return <p>Loading...</p>;
-  }
+  const login = async () => {
+    try {
+      const res = await axios.post("http://localhost:5000/api/auth/login", {
+        email,
+        password,
+        tenantSubdomain: tenant
+      });
+      setMsg("Login success ✔️ Token received");
+    } catch {
+      setMsg("Login failed ❌");
+    }
+  };
 
   return (
-    <Routes>
-      <Route
-        path="/"
-        element={user ? <Navigate to="/dashboard" /> : <Navigate to="/login" />}
-      />
-
-      <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<h2>Tenant Registration</h2>} />
-
-      <Route
-        path="/dashboard"
-        element={user ? <Dashboard /> : <Navigate to="/login" />}
-      />
-
-
-      <Route
-        path="/projects"
-        element={user ? <Projects /> : <Navigate to="/login" />}
-      />
-
-      <Route
-        path="/projects/:projectId"
-        element={user ? <Tasks /> : <Navigate to="/login" />}
-      />
-
-      <Route
-        path="/users"
-        element={user ? <Users /> : <Navigate to="/login" />}
-      />
-
-    </Routes>
+    <div>
+      <h2>Login</h2>
+      <input placeholder="email" onChange={e=>setEmail(e.target.value)} />
+      <input placeholder="password" type="password" onChange={e=>setPassword(e.target.value)} />
+      <input placeholder="tenant" onChange={e=>setTenant(e.target.value)} />
+      <button onClick={login}>Login</button>
+      <p>{msg}</p>
+    </div>
   );
 }
 
